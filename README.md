@@ -2,6 +2,8 @@ zsh_virsh_autocompletion
 ========================
 
 This is a zsh autocompletion file for the libvirt virsh command
+Working for libvirt >= version 0.9 
+Tested on libvirt 0.9.12-5 on Debian wheezy
 
 99% work of this is done by Jan-Philipp Litza, so credit goes
 to him. I personally like to pay him respect for being able
