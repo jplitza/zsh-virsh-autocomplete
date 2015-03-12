@@ -170,9 +170,11 @@ _regex_words \
     'pool-define:define (but don'"\'"'t start) a pool from an XML file:$expand_files' \
     'secret-define:define or modify a secret from an XML file:$expand_files' \
     'reboot:reboot a domain:$expand_domains' \
+    'reset:hard reset a domain:$expand_domains' \
     'restore:restore a domain from a saved state in a file:$expand_files' \
     'resume:resume a domain:$expand_domains_running' \
     'save:save a domain state to a file:$expand_domains $expand_files' \
+    'send-key:send key sequence to a domain:$expand_domains_running' \
     'dump:dump the core of a domain to a file for analysis:$expand_domains $expand_files' \
     'shutdown:gracefully shutdown a domain:$expand_domains_running' \
     'setmem:change memory allocation:$expand_domains $expand_kilobytes' \
