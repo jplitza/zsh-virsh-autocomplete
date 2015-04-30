@@ -1,19 +1,19 @@
 zsh_virsh_autocompletion
 ========================
 
-This is a zsh autocompletion file for the libvirt virsh command
+This is a zsh autocompletion file for [libvirt]'s `virsh` command.
 
-Working for libvirt >= version 0.9 
-Tested on libvirt 0.9.12-5 on Debian wheezy
+Working for libvirt >= version 0.9, tested with libvirt 1.2.12 on Ubuntu
 
-99% work of this is done by Jan-Philipp Litza, so credit goes
-to him. I personally like to pay him respect for being able
-to survive in this horrific syntax of zsh completing functions.
+[libvirt]: https://libvirt.org/
 
 
 INSTALLING
+----------
 
-TODO: Add a better install hint.
+```
+cp _virsh /usr/share/zsh/functions/Completion/Linux
+```
+Actually, any path in your `$fpath` would work, so if you like that better, use `/usr/local/share/zsh/site-functions` for example.
 
-For me it worked out to copy the _virsh file to
-/usr/share/zsh/functions/Completion/Zsh and restart the shell.
+After copying, restart your shell.
