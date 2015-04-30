@@ -1,6 +1,6 @@
 #compdef virsh
 
-# Copyright (c) 2012, Jan-Philipp Litza <janphilipp@litza.de>
+# Copyright (c) 2015, Jan-Philipp Litza <janphilipp@litza.de>
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -27,170 +27,135 @@
 
 local -a args reply
 
-function _virsh-domains() {
+function _virsh_domains() {
   local -a out
-  out=($(virsh list --name "$@"))
-  compadd -x "${${1#--}:-running} domains" -a out
+  local description="${(P)#}"
+  shift -p
+  local domaintype="${description/running/}"
+  out=( ${(f)"$(_call_program commands virsh list --name ${domaintype:+--$domaintype} 2>&1)"} )
+  if (( $#out == 0 )); then
+    _message "No $description domains"
+  else
+    _describe "$description domains" out "$@"
+  fi
   return $?
 }
 
-# % virsh help
-# Grouped commands:
-#  Domain Management (help keyword 'domain'):
-#     attach-device                  attach device from an XML file
-#     attach-disk                    attach disk device
-# ^^^^ four spaces
-function _virsh_fill_subcmds() {
-  virsh help | grep "^    " | \
-    while read cmd help; do
-      virsh_subcmd+="$cmd:${(q-)help}"
-    done
+_virsh() {
+  _arguments \
+    {-c,--connect}':hypervisor connection URI:_files' \
+    {-d,--debug}':debug level:( 0 1 2 3 4 )' \
+    {-e,--escape}':escape character for console:' \
+    {-h,--help}'[show help]' \
+    {-k,--keepalive-interval}':keepalive interval in seconds, 0 for disable:' \
+    {-K,--keepalive-count}':number of possible missed keepalive messages:' \
+    {-l,--log}'[output logging to file]:logfile:_files' \
+    {-q,--quiet}'[quiet mode]' \
+    {-r,--readonly}'[connect readonly]' \
+    {-t,--timing}'[print timing information]' \
+    '-v:show version' \
+    '-V:long version' \
+    '--version[show version]:type:( short long )' \
+    '::virsh command:_virsh_subcommand' \
+    '*::virsh command arguments:_virsh_subcommand_args'
 }
 
-local -a expand_files
-expand_files=(/$'[^\0]##\0'/ ':file:file name:_files')
+_virsh_domain_or_file() {
+  _alternative \
+    "domains:domains:_virsh_domains ${1:-all}" \
+    "files:files:_files"
+}
 
-local -a expand_dirs
-expand_dirs=(/$'[^\0]##\0'/ ":dir:dir name:_files -/")
+_virsh_fallback_command() {
+  domains() {
+    echo "$1 domains:_virsh_domains $1"
+  }
+  local files="file:_files"
+  local -A cmd_args
+  cmd_args=(
+    attach-device "$files"
+    autostart "$(domains all)"
+    cd "dirs:_dirs"
+    console "$(domains running)"
+    cpu-baseline "$files"
+    cpu-compare "$files"
+    create "$files"
+    start "$(domains inactive)"
+    destroy "$(domains running)"
+    detach-device "$(domains all)"
+    define "$files"
+    domid "$(domains all)"
+    domuuid "$(domains all)"
+    dominfo "$(domains all)"
+    domjobinfo "$(domains all)"
+    domjobabort "$(domains all)"
+    domname "$(domains all)"
+    domstate "$(domains all)"
+    dommemstat "$(domains all)"
+    dumpxml "$(domains all)"
+    edit "$(domains all)"
+    list "$(domains all)"
+    net-create "$files"
+    net-define "$files"
+    managedsave "$(domains running)"
+    managedsave-remove "$(domains all)"
+    nwfilter-define "$files"
+    pool-create "$files"
+    pool-define "$files"
+    secret-define "$files"
+    reboot "$(domains running)"
+    reset "$(domains running)"
+    restore "$files"
+    resume "$(domains running)"
+    send-key "$(domains running)"
+    setmem "$(domains all)"
+    setmaxmem "$(domains all)"
+    setvcpus "$(domains all)"
+    shutdown "$(domains running)"
+    suspend "$(domains running)"
+    ttyconsole "$(domains running)"
+    undefine "$(domains inactive)"
+    vcpuinfo "$(domains running)"
+    vncdisplay "$(domains running)"
+    snapshot-current "$(domains all)"
+    snapshot-list "$(domains all)"
+  )
 
-local -a expand_domains
-expand_domains=(
-  /$'[^\0]##\0'/
-  ":domains:domains:{_virsh-domains --all}"
-)
+  local cmd="$1"
+  local -a options
+  options=(
+    ${${(M)${(f)"$(_call_program commands virsh help $cmd 2>&1)"}:#    -*}/#(#b)    ([a-z-]##) ##([^[:space:]]*)/$match[1]:$match[2]}
+  )
+  if (( $+cmd_args[$cmd] )); then
+    options+=( ":$cmd_args[$cmd]" )
+  else
+    options+=( ":$(domains all)" ":$files" )
+  fi
+  _arguments "$options[@]"
+}
 
-local -a expand_domains_running
-expand_domains_running=(
-  /$'[^\0]##\0'/
-  ":domains:running domains:{_virsh-domains}"
-)
+_virsh_build_cmds() {
+  (( $+_virsh_cmds )) || _virsh_cmds=(
+     ${${(M)${(f)"$(_call_program commands virsh help 2>&1)"}:#    *}/#(#b)    ([a-z-]##) ##([^[:space:]])/$match[1]:$match[2]}
+  )
+}
 
-local -a expand_domains_inactive
-expand_domains_inactive=(
-  /$'[^\0]##\0'/
-  ":domains:inactive domains:{_virsh-domains --inactive}"
-)
+_virsh_subcommand() {
+  _virsh_build_cmds
+  _describe 'virsh command' _virsh_cmds
+}
 
-local -a expand_kilobytes
-expand_kilobytes=(
-  /'\d+'/
-  ":kilobytes:kilobytes:"
-)
+_virsh_subcommand_args() {
+  _virsh_build_cmds
+  local curcontext="$curcontext"
 
-local -a expand_count
-expand_count=(
-  /'\d+'/
-  ":count:count:"
-)
-
-local -a subcmd_help
-subcmd_help=(
-  /$'[^\0]##\0'/
-  ":command:virsh command:"
-)
-
-local -a subcmd_list
-_regex_words \
-  list-options 'list options' \
-  '--all:list all domains, not only active' \
-  '--inactive:list only inactive domains'
-subcmd_list=("$reply[@]")
-
-local -a subcmd_freecell
-subcmd_freecell=(
-  /'\d*'/
-  ":numa-cell:NUMA cell:"
-)
-
-local -a subcmd_autostart
-_regex_words \
-  autostart-options 'autostart options' \
-  '--disable:disables autostart instead of enabling'
-subcmd_autostart=("(" "$reply[@]" "|" ")" $expand_domains)
-
-local -a subcmd_create
-_regex_words \
-  create-options 'create options' \
-  '--console:attach to the console after creation' \
-  '--paused:pause domain after creation (if supported by driver)'
-subcmd_create=("(" "$reply[@]" "|" ")" $expand_files)
-
-local -a subcmd_dumpxml
-_regex_words \
-  dumpxml-options 'dumpxml options' \
-  '--inactive:use the config for next reboot instead of current' \
-  '--security-info:include security sensitive information' \
-  '--update-cpu:update CPU requirements according to host CPU'
-subcmd_dumpxml=("(" "$reply[@]" "|" ")" $expand_domains)
-
-local -a subcmd_start
-_regex_words \
-  start-options 'start options' \
-  '--console:attach to console after start' \
-  '--paused: pause after start (if supported by driver)'
-subcmd_start=("(" "$reply[@]" "|" ")" $expand_domains_inactive)
-
-args=( /$'[^\0]#\0'/ )
-
-local -a virsh_subcmd
-_virsh_fill_subcmds
-
-_regex_words \
-  commands "virsh command" \
-    'help:print help:$subcmd_help' \
-    'attach-device:attach device from an XML file:$expand_domains $expand_files' \
-    'autostart:autostart a domain:$subcmd_autostart' \
-    'cd:change the current directory:$expand_dirs' \
-    'console:connect to the guest console:$expand_domains_running' \
-    'cpu-baseline:compute baseline CPU:$expand_files' \
-    'cpu-compare:compare host CPU with a CPU described by an XML file:$expand_files' \
-    'create:create a domain from an XML file:$subcmd_create' \
-    'start:start a (previously defined) inactive domain:$subcmd_start' \
-    'destroy:destroy a domain:$expand_domains_running' \
-    'detach-device:detach device from an XML file:$expand_domains $expand_files' \
-    'define:define (but don'"\'"'t start) a domain from an XML file:$expand_files' \
-    'domid:convert a domain name or UUID to domain id:$expand_domains' \
-    'domuuid:convert a domain name or id to domain UUID:$expand_domains' \
-    'dominfo:domain information:$expand_domains' \
-    'domjobinfo:domain job information:$expand_domains' \
-    'domjobabort:abort active domain job:$expand_domains' \
-    'domname:convert a domain id or UUID to domain name:$expand_domains' \
-    'domstate:domain state:$expand_domains' \
-    'dommemstat:get memory statistics for a domain:$expand_domains_running' \
-    'dumpxml:domain information in XML:$subcmd_dumpxml' \
-    'edit:edit XML configuration for a domain:$expand_domains' \
-    'freecell:NUMA free memory:$subcmd_freecell' \
-    'list:list domains:$subcmd_list' \
-    'net-create:create a network from an XML file:$expand_files' \
-    'net-define:define (but don'"\'"'t start) a network from an XML file:$expand_files' \
-    'managedsave:managed save of a domain state:$expand_domains_running' \
-    'managedsave-remove:Remove managed save of a domain:$expand_domains' \
-    'nwfilter-define:define or update a network filter from an XML file:$expand_files' \
-    'pool-create:create a pool from an XML file:$expand_files' \
-    'pool-define:define (but don'"\'"'t start) a pool from an XML file:$expand_files' \
-    'secret-define:define or modify a secret from an XML file:$expand_files' \
-    'reboot:reboot a domain:$expand_domains' \
-    'reset:hard reset a domain:$expand_domains' \
-    'restore:restore a domain from a saved state in a file:$expand_files' \
-    'resume:resume a domain:$expand_domains_running' \
-    'save:save a domain state to a file:$expand_domains $expand_files' \
-    'send-key:send key sequence to a domain:$expand_domains_running' \
-    'dump:dump the core of a domain to a file for analysis:$expand_domains $expand_files' \
-    'shutdown:gracefully shutdown a domain:$expand_domains_running' \
-    'setmem:change memory allocation:$expand_domains $expand_kilobytes' \
-    'setmaxmem:change maximum memory limit:$expand_domains $expand_kilobytes' \
-    'setvcpus:change number of virtual CPUs:$expand_domains $expand_count' \
-    'suspend:suspend a domain:$expand_domains_running' \
-    'ttyconsole:tty console:$expand_domains_running' \
-    'undefine:undefine an inactive domain:$expand_domains_inactive' \
-    'vcpuinfo:domain vcpu information:$expand_domains_running' \
-    'vncdisplay:vnc display:$expand_domains_running' \
-    'snapshot-create:Create a snapshot:$expand_domains $expand_files' \
-    'snapshot-current:Get the current snapshot:$expand_domains' \
-    'snapshot-list:List snapshots for a domain:$expand_domains' \
-    $virsh_subcmd
-args+=("$reply[@]")
-
-_regex_arguments _virsh "${args[@]}"
+  cmd="${${_virsh_cmds[(r)$words[1]:*]%%:*}:-${(k)_virsh_syns[(r)(*:|)$words[1](:*|)]}}"
+  if (( $#cmd )); then
+    curcontext="${curcontext%:*:*}:virsh-${cmd}:"
+    _virsh_fallback_command "$cmd"
+  else
+    _message "unknown virsh command; $words[1]"
+  fi
+}
 
 _virsh "$@"
